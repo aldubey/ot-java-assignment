@@ -1,16 +1,18 @@
 package com.opentext.interview.java.assignment;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.opentext.interview.java.assignment.Main.TaskExecutorImpl.executorService;
 
 public class Main {
+
+    AtomicInteger taskRank = new AtomicInteger(0);
+    static Map<String, Long> taskOrderMap = new ConcurrentHashMap<>();
+
 
     /**
      * Enumeration of task types.
@@ -71,11 +73,11 @@ public class Main {
             try {
                 reentrantLock.lock();
                 while (runningTaskGroups.containsKey(task.taskGroup())) {
-                    System.out.println("There is already one task running with the group id " + task.taskGroup().groupUUID());
-                    System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is waiting for submission");
+                    //  System.out.println("There is already one task running with the group id " + task.taskGroup().groupUUID());
+                    //   System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is waiting for submission");
 
                     condition.await();
-                    System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is ready for submission");
+                    //   System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is ready for submission");
                 }
             } catch (InterruptedException ex) {
                 throw new RuntimeException(ex);
@@ -85,12 +87,13 @@ public class Main {
             runningTaskGroups.put(task.taskGroup(), task.taskGroup().groupUUID());
             future = executorService.submit(() -> {
                 try {
+                    //  System.out.println("@@@@ Task for input: " + input + " started by " + curThread + " rank:" +taskRank.incrementAndGet());
                     return task.taskAction().call();
                 } finally {
-                     reentrantLock.lock();
+                    reentrantLock.lock();
                     try {
                         runningTaskGroups.remove(task.taskGroup());
-                        System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is done and remove from list");
+                        //    System.out.println("Task with id " + task.taskUUID() + "and group id " + task.taskGroup().groupUUID() + "is done and remove from list");
                         condition.signalAll();
                     } finally {
                         reentrantLock.unlock();
@@ -113,14 +116,14 @@ public class Main {
         TaskGroup taskGroup2 = new TaskGroup(taskGroupUUID2);
         TaskGroup taskGroup3 = new TaskGroup(taskGroupUUID3);
 
-        Callable<String> taskAction1Grp1StrUcaseLongRun = () -> main.getLongRunTaskResult("java");
-        Callable<String> taskAction2Grp1StrUcaseLongRun = () -> main.getLongRunTaskResult("cat");
-        Callable<String> taskAction3Grp2StrUcase = () -> main.getShortRunTaskResult("dog");
-        Callable<String> taskAction43Grp2StrUcase = () -> main.getShortRunTaskResult("python");
-        Callable<String> taskAction53Grp3StrUcase = () -> main.getShortRunTaskResult("idea");
+        Callable<String> taskAction1Grp1StrUcase = () -> main.getLongRunTaskResult("java-task-1");
+        Callable<String> taskAction2Grp1StrUcase = () -> main.getShortRunTaskResult("cat-task-2");
+        Callable<String> taskAction3Grp2StrUcase = () -> main.getShortRunTaskResult("dog-task-3");
+        Callable<String> taskAction43Grp2StrUcase = () -> main.getLongRunTaskResult("python-task-4");
+        Callable<String> taskAction53Grp3StrUcase = () -> main.getShortRunTaskResult("idea-task-5");
 
-        Task<String> task1Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.READ, taskAction1Grp1StrUcaseLongRun);
-        Task<String> task2Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.WRITE, taskAction2Grp1StrUcaseLongRun);
+        Task<String> task1Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.READ, taskAction1Grp1StrUcase);
+        Task<String> task2Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.WRITE, taskAction2Grp1StrUcase);
         Task<String> task3Grp2 = new Task<>(UUID.randomUUID(), taskGroup2, TaskType.READ, taskAction3Grp2StrUcase);
         Task<String> task4Grp2 = new Task<>(UUID.randomUUID(), taskGroup2, TaskType.WRITE, taskAction43Grp2StrUcase);
         Task<String> task5Grp3 = new Task<>(UUID.randomUUID(), taskGroup3, TaskType.WRITE, taskAction53Grp3StrUcase);
@@ -131,30 +134,27 @@ public class Main {
             futureResults.add(taskExecutor.submitTask(task));
         }
         for (Future<String> result : futureResults) {
-            System.out.println("Future Result : " + result.get());
+            // System.out.println("Future Result : " + result.get());
+            result.get();
         }
+
+        taskOrderMap.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getValue)).forEach(e -> {
+            System.out.println("@@@@ Task for input: " + e.getKey() + " start time: " + e.getValue());
+        });
 
         executorService.shutdown();
     }
 
     private String getLongRunTaskResult(String input) throws InterruptedException {
-        Thread.sleep(2000);
-        String curThread = Thread.currentThread().getName();
-        //   System.out.println("Enter: getLongRunTaskResult for input: " + input + " by " + curThread);
-        String result = Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
-        //    System.out.println("LongRunTaskResult by thread " + curThread);
-        //   System.out.println("Exit: getLongRunTaskResult by " + curThread);
-        return result;
+        taskOrderMap.put(input, System.nanoTime());
+        Thread.sleep(8000);
+        return Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
     }
 
     private String getShortRunTaskResult(String input) throws InterruptedException {
+        taskOrderMap.put(input, System.nanoTime());
         Thread.sleep(1000);
-        String curThread = Thread.currentThread().getName();
-        //  System.out.println("Enter: getShortRunTaskResult for input: " + input + " by " + curThread);
-        String result = Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
-        //  System.out.println("ShortRunTaskResult by thread " + curThread);
-        //  System.out.println("Exit: getShortRunTaskResult by " + curThread);
-        return result;
+        return Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
     }
 
 }
