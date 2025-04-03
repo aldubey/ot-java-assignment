@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.opentext.interview.java.assignment.Main.TaskExecutorImpl.executorService;
 
@@ -59,10 +61,43 @@ public class Main {
 
     class TaskExecutorImpl implements TaskExecutor {
         static ExecutorService executorService = Executors.newFixedThreadPool(5);
+        private final ReentrantLock reentrantLock = new ReentrantLock();
+        private final Condition condition = reentrantLock.newCondition();
+        private ConcurrentHashMap<TaskGroup, UUID> runningTaskGroups = new ConcurrentHashMap<>();
 
         @Override
         public <T> Future<T> submitTask(Task<T> task) {
-            return executorService.submit(task.taskAction());
+            Future<T> future = null;
+            try {
+                reentrantLock.lock();
+                while (runningTaskGroups.containsKey(task.taskGroup())) {
+                    System.out.println("There is already one task running with the group id " + task.taskGroup().groupUUID());
+                    System.out.println("Task with id " + task.taskUUID() + "and group id "+task.taskGroup().groupUUID()+"is waiting for submission");
+                    condition.await();
+                    System.out.println("Task with id " + task.taskUUID() + "and group id "+task.taskGroup().groupUUID()+"is ready for submission");
+
+                }
+                runningTaskGroups.put(task.taskGroup(), task.taskGroup().groupUUID());
+                future = executorService.submit(() -> {
+                    try {
+                        return task.taskAction().call();
+                    } finally {
+                        reentrantLock.lock();
+                        try {
+                            runningTaskGroups.remove(task.taskGroup());
+                            System.out.println("Task with id " + task.taskUUID() + "and group id "+task.taskGroup().groupUUID()+"is done and remove from list");
+                            condition.signalAll();
+                        } finally {
+                            reentrantLock.unlock();
+                        }
+                    }
+                });
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            } finally {
+                reentrantLock.unlock();
+            }
+            return future;
         }
     }
 
@@ -104,21 +139,29 @@ public class Main {
     private String getLongRunTaskResult(String input) throws InterruptedException {
         Thread.sleep(2000);
         String curThread = Thread.currentThread().getName();
-        System.out.println("Enter: getLongRunTaskResult for input: " +input+ " by " + curThread);
+     //   System.out.println("Enter: getLongRunTaskResult for input: " + input + " by " + curThread);
         String result = Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
-        System.out.println("LongRunTaskResult by thread " + curThread);
-        System.out.println("Exit: getLongRunTaskResult by " + curThread);
+    //    System.out.println("LongRunTaskResult by thread " + curThread);
+     //   System.out.println("Exit: getLongRunTaskResult by " + curThread);
         return result;
     }
 
     private String getShortRunTaskResult(String input) throws InterruptedException {
         Thread.sleep(1000);
         String curThread = Thread.currentThread().getName();
-        System.out.println("Enter: getShortRunTaskResult for input: " +input+ " by " + curThread);
+      //  System.out.println("Enter: getShortRunTaskResult for input: " + input + " by " + curThread);
         String result = Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
-        System.out.println("ShortRunTaskResult by thread " + curThread);
-        System.out.println("Exit: getShortRunTaskResult by " + curThread);
+      //  System.out.println("ShortRunTaskResult by thread " + curThread);
+      //  System.out.println("Exit: getShortRunTaskResult by " + curThread);
         return result;
     }
+
+    /*private ExecutorService getExecutor(){
+        // static ExecutorService executorService = Executors.newFixedThreadPool(5);
+        int corePoolSize=5;
+        int maximumPoolSize=5,
+        BlockingQueue<Runnable> workQueue = PriorityBlockingQueue
+        static ExecutorService executorService = new ThreadPoolExecutor();
+    }*/
 
 }
