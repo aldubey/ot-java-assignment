@@ -1,5 +1,7 @@
 package com.opentext.interview.java.assignment;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,6 +14,7 @@ public class Main {
 
     AtomicInteger taskRank = new AtomicInteger(0);
     static Map<String, Long> taskOrderMap = new ConcurrentHashMap<>();
+    static ConcurrentLinkedQueue taskQueue =new ConcurrentLinkedQueue<>();
 
 
     /**
@@ -146,14 +149,18 @@ public class Main {
     }
 
     private String getLongRunTaskResult(String input) throws InterruptedException {
+        System.out.println("Task "+input+"Start Time: "+ Instant.now());
         taskOrderMap.put(input, System.nanoTime());
-        Thread.sleep(8000);
+        Thread.sleep(10000);
+        System.out.println("Task "+input+"End Time: "+ Instant.now());
         return Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
     }
 
     private String getShortRunTaskResult(String input) throws InterruptedException {
+        System.out.println("Task "+input+"Start Time: "+ Instant.now());
         taskOrderMap.put(input, System.nanoTime());
-        Thread.sleep(1000);
+        //Thread.sleep(4000);
+        System.out.println("Task "+input+"End Time: "+ Instant.now());
         return Optional.ofNullable(input).map(String::toUpperCase).orElse(input);
     }
 
