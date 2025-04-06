@@ -116,49 +116,6 @@ public class TaskExecutorImplConcurrent implements TaskExecutor {
             taskGroupWriteLock.unlock();
         }
     }
-/*private <T> void handleSameTaskGroups(Task<T> task) {
-        boolean needToWait = false;
-        UpperCaseTask2 upperCaseTask2 = (UpperCaseTask2) task.taskAction();
-
-        try {
-            taskGroupReadLock.lock();
-            needToWait = runningTaskGroups.containsKey(task.taskGroup());
-        } finally {
-            taskGroupReadLock.unlock();
-        }
-
-        if (needToWait) {
-            try {
-                taskGroupWriteLock.lock();
-                while (runningTaskGroups.containsKey(task.taskGroup())) {
-                    System.out.println("***** handleSameTaskGroups Waiting task "+upperCaseTask2.getTaskName());
-                    writeCondition.await();
-                }
-                runningTaskGroups.put(task.taskGroup(), task.taskGroup().groupUUID());
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } finally {
-                taskGroupWriteLock.unlock();
-            }
-        } else {
-            try {
-                taskGroupWriteLock.lock();
-                if (!runningTaskGroups.containsKey(task.taskGroup())) {
-                    runningTaskGroups.put(task.taskGroup(), task.taskGroup().groupUUID());
-                } else {
-                    while (runningTaskGroups.containsKey(task.taskGroup())) {
-                        System.out.println("@@@@@ handleSameTaskGroups ELSE PART Waiting task "+upperCaseTask2.getTaskName());
-                        writeCondition.await();
-                    }
-                    runningTaskGroups.put(task.taskGroup(), task.taskGroup().groupUUID());
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } finally {
-                taskGroupWriteLock.unlock();
-            }
-        }
-    }*/
 
     private String getLongRunTaskResult(String input) throws InterruptedException {
         taskOrderMap.put(input, System.nanoTime());
@@ -187,17 +144,6 @@ public class TaskExecutorImplConcurrent implements TaskExecutor {
         TaskGroup taskGroup2 = new TaskGroup(taskGroupUUID2);
         TaskGroup taskGroup3 = new TaskGroup(taskGroupUUID3);
 
-       /* Callable<String> taskAction1Grp1StrUcase = () -> taskExecutor.getLongRunTaskResult("java-task-1");
-        Callable<String> taskAction2Grp1StrUcase = () -> taskExecutor.getShortRunTaskResult("cat-task-2");
-        Callable<String> taskAction3Grp2StrUcase = () -> taskExecutor.getShortRunTaskResult("dog-task-3");
-        Callable<String> taskAction43Grp2StrUcase = () -> taskExecutor.getLongRunTaskResult("python-task-4");
-        Callable<String> taskAction53Grp3StrUcase = () -> taskExecutor.getShortRunTaskResult("idea-task-5");*/
-
-        /*Task<String> task1Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.READ, taskAction1Grp1StrUcase);
-        Task<String> task2Grp1 = new Task<>(UUID.randomUUID(), taskGroup1, TaskType.WRITE, taskAction2Grp1StrUcase);
-        Task<String> task3Grp2 = new Task<>(UUID.randomUUID(), taskGroup2, TaskType.READ, taskAction3Grp2StrUcase);
-        Task<String> task4Grp2 = new Task<>(UUID.randomUUID(), taskGroup2, TaskType.WRITE, taskAction43Grp2StrUcase);
-        Task<String> task5Grp3 = new Task<>(UUID.randomUUID(), taskGroup3, TaskType.WRITE, taskAction53Grp3StrUcase);*/
         Main.Task<String> task1Grp1 = new Main.Task<>(UUID.randomUUID(), taskGroup1, Main.TaskType.READ, new UpperCaseTask2(JAVA_TASK_1, 2000));
         Main.Task<String> task2Grp1 = new Main.Task<>(UUID.randomUUID(), taskGroup1, Main.TaskType.WRITE, new UpperCaseTask2(CAT_TASK_2, 1000));
         Main.Task<String> task3Grp2 = new Main.Task<>(UUID.randomUUID(), taskGroup2, Main.TaskType.READ, new UpperCaseTask2(DOG_TASK_3, 1500));
@@ -251,9 +197,5 @@ class UpperCaseTask2 implements Callable<String> {
 
     public String getTaskName() {
         return taskName;
-    }
-
-    public int getDelayMillis() {
-        return delayMillis;
     }
 }
